@@ -1,0 +1,27 @@
+{
+    "name": "video-to-audio-converter",
+    "version": "1.0.0",
+    "description": "Servidor simple para convertir video a audio",
+    "main": "server.js",
+    "scripts": {
+        "start": "node server.js",
+        "dev": "node server.js"
+    },
+    "dependencies": {
+        "express": "^4.18.2",
+        "fluent-ffmpeg": "^2.1.2",
+        "fs-extra": "^11.1.1",
+        "multer": "^1.4.5-lts.1",
+        "node-fetch": "^2.7.0",
+        "openai-whisper": "^1.0.0",
+        "uuid": "^9.0.0"
+    },
+    "keywords": [
+        "video",
+        "audio",
+        "converter",
+        "ffmpeg"
+    ],
+    "author": "",
+    "license": "MIT"
+}

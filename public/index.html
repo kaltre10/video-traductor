@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Traductor de Video</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+
+<body>
+    <div class="container">
+        <header class="header">
+            <h1><i class="fas fa-language"></i> Traductor de Video</h1>
+            <p>Convierte y traduce videos a diferentes idiomas</p>
+        </header>
+
+        <main class="main-content">
+            <!-- Upload Section -->
+            <section class="upload-section">
+                <div class="upload-area" id="uploadArea">
+                    <div class="upload-content">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                        <h3>Arrastra tu video aquí</h3>
+                        <p>o haz clic para seleccionar archivo</p>
+                        <input type="file" id="videoInput" accept="video/*" hidden>
+                        <button class="upload-btn" id="uploadBtn">
+                            Seleccionar Video
+                        </button>
+                    </div>
+                </div>
+                <div class="file-info" id="fileInfo" style="display: none;">
+                    <div class="file-details">
+                        <i class="fas fa-video"></i>
+                        <span id="fileName"></span>
+                        <button class="remove-btn" onclick="removeFile()">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Language Selection -->
+            <section class="language-section">
+                <div class="language-selector">
+                    <div class="language-group">
+                        <label for="targetLanguage">Idioma de destino:</label>
+                        <select id="targetLanguage" class="language-select">
+                            <option value="en">Inglés</option>
+                            <option value="es">Español</option>
+                            <option value="fr">Francés</option>
+                            <option value="de">Alemán</option>
+                            <option value="it">Italiano</option>
+                            <option value="pt">Portugués</option>
+                            <option value="ja">Japonés</option>
+                            <option value="ko">Coreano</option>
+                            <option value="zh">Chino</option>
+                            <option value="ru">Ruso</option>
+                            <option value="ar">Árabe</option>
+                            <option value="hi">Hindi</option>
+                        </select>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Process Button -->
+            <section class="process-section">
+                <button class="process-btn" id="processBtn" onclick="processVideo()" disabled>
+                    <i class="fas fa-play"></i>
+                    Iniciar Traducción
+                </button>
+            </section>
+
+            <!-- Progress Section -->
+            <section class="progress-section" id="progressSection" style="display: none;">
+                <div class="progress-container">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressFill"></div>
+                    </div>
+                    <div class="progress-text" id="progressText">Preparando...</div>
+                </div>
+                <div class="steps-container">
+                    <div class="step" id="step1">
+                        <i class="fas fa-music"></i>
+                        <span>Convirtiendo a audio</span>
+                    </div>
+                    <div class="step" id="step2">
+                        <i class="fas fa-microphone"></i>
+                        <span>Transcribiendo</span>
+                    </div>
+                    <div class="step" id="step3">
+                        <i class="fas fa-language"></i>
+                        <span>Traduciendo</span>
+                    </div>
+                    <div class="step" id="step4">
+                        <i class="fas fa-volume-up"></i>
+                        <span>Generando audio</span>
+                    </div>
+                    <div class="step" id="step5">
+                        <i class="fas fa-sync"></i>
+                        <span>Sincronizando</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Results Section -->
+            <section class="results-section" id="resultsSection" style="display: none;">
+                <div class="result-card">
+                    <h3><i class="fas fa-check-circle"></i> Traducción Completada</h3>
+                    <div class="video-preview">
+                        <video id="resultVideo" controls>
+                            Tu navegador no soporta el elemento video.
+                        </video>
+                    </div>
+                    <div class="download-section">
+                        <button class="download-btn" onclick="downloadVideo()">
+                            <i class="fas fa-download"></i>
+                            Descargar Video Traducido
+                        </button>
+                    </div>
+                    <div id="result"></div>
+                </div>
+            </section>
+
+            <!-- Error Section -->
+            <section class="error-section" id="errorSection" style="display: none;">
+                <div class="error-card">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <h3>Error en el proceso</h3>
+                    <p id="errorMessage"></p>
+                    <button class="retry-btn" onclick="retryProcess()">
+                        <i class="fas fa-redo"></i>
+                        Intentar de nuevo
+                    </button>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+
+</html>
