@@ -44,12 +44,14 @@ async function transcribeAudio(audioPath) {
     });
 }
 
-// Traduce texto usando LibreTranslate o Lingva con fallback automático
+// Traduce texto usando LibreTranslate o Lingva con fallback automático y URLs desde config
 async function translateText(text, targetLanguage, useLingva = false) {
     const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
+    const libreUrl = config.TRANSLATION_CONFIG.LIBRETRANSLATE_URL;
+    const lingvaUrl = config.TRANSLATION_CONFIG.LINGVA_URL;
     try {
         // LibreTranslate API
-        const url = 'https://libretranslate.de/translate';
+        const url = `${libreUrl.replace(/\/$/, '')}/translate`;
         const res = await fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -68,7 +70,7 @@ async function translateText(text, targetLanguage, useLingva = false) {
         // Fallback a Lingva si LibreTranslate falla
         console.error('Error en traducción LibreTranslate, probando Lingva:', err.message);
         try {
-            const url = `https://lingva.ml/api/v1/en/${targetLanguage}/${encodeURIComponent(text)}`;
+            const url = `${lingvaUrl.replace(/\/$/, '')}/en/${targetLanguage}/${encodeURIComponent(text)}`;
             const res = await fetch(url);
             const data = await res.json();
             if (!data.translation) throw new Error('Respuesta inesperada de Lingva');
