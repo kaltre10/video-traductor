@@ -129,6 +129,7 @@ async function processVideo() {
     const targetLanguage = document.getElementById('targetLanguage').value;
     const ttsProvider = document.getElementById('ttsProvider').value;
     const voiceId = document.getElementById('voiceSelector').value;
+    const elevenLabsApiKey = document.getElementById('elevenLabsApiKey')?.value;
 
     // Show progress section
     showProgress();
@@ -144,6 +145,9 @@ async function processVideo() {
         formData.append('ttsProvider', ttsProvider);
         if (voiceId) {
             formData.append('voiceId', voiceId);
+        }
+        if (ttsProvider === 'elevenlabs' && elevenLabsApiKey) {
+            formData.append('elevenLabsApiKey', elevenLabsApiKey);
         }
 
         // Start processing
@@ -554,12 +558,16 @@ function getLanguageName(languageCode) {
 function onTTSProviderChange() {
     const ttsProvider = document.getElementById('ttsProvider').value;
     const voiceSelectorGroup = document.getElementById('voiceSelectorGroup');
+    const elevenLabsApiKeyGroup = document.getElementById('elevenLabsApiKeyGroup');
 
     if (ttsProvider === 'elevenlabs') {
         voiceSelectorGroup.classList.add('show');
+        voiceSelectorGroup.style.display = '';
+        elevenLabsApiKeyGroup.style.display = '';
     } else {
         voiceSelectorGroup.classList.remove('show');
         voiceSelectorGroup.style.display = 'none';
+        elevenLabsApiKeyGroup.style.display = 'none';
         hideVoiceInfo();
     }
 }

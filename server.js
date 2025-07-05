@@ -201,6 +201,7 @@ app.post('/api/process-video', upload.single('video'), async (req, res) => {
         const targetLanguage = req.body.targetLanguage || 'en';
         const ttsProvider = req.body.ttsProvider || 'gtts';
         const voiceId = req.body.voiceId || null;
+        const elevenLabsApiKey = req.body.elevenLabsApiKey || null;
 
         // Verificar si es un video largo
         const isLongVideo = await checkIfLongVideo(videoPath);
@@ -222,9 +223,9 @@ app.post('/api/process-video', upload.single('video'), async (req, res) => {
 
         // Start processing in background
         if (isLongVideo) {
-            processLongVideoAsync(processId, videoPath, targetLanguage, ttsProvider, voiceId);
+            processLongVideoAsync(processId, videoPath, targetLanguage, ttsProvider, voiceId, elevenLabsApiKey);
         } else {
-            processVideoAsync(processId, videoPath, targetLanguage, ttsProvider, voiceId);
+            processVideoAsync(processId, videoPath, targetLanguage, ttsProvider, voiceId, elevenLabsApiKey);
         }
 
         res.json({
@@ -302,7 +303,7 @@ app.get('/api/download/:filename', (req, res) => {
 });
 
 // Video processing function
-async function processVideoAsync(processId, videoPath, targetLanguage, ttsProvider, voiceId) {
+async function processVideoAsync(processId, videoPath, targetLanguage, ttsProvider, voiceId, elevenLabsApiKey) {
     try {
         // Step 1: Convert video to audio (20%)
         updateProcess(processId, 1, 20, 'Convirtiendo video a audio...');
@@ -335,7 +336,7 @@ async function processVideoAsync(processId, videoPath, targetLanguage, ttsProvid
 
         let ttsAudioPath;
         if (ttsProvider === 'elevenlabs') {
-            ttsAudioPath = await utils.generateElevenLabsTTS(translatedText, targetLanguage, config.OUTPUT_DIR, voiceId);
+            ttsAudioPath = await utils.generateElevenLabsTTS(translatedText, targetLanguage, config.OUTPUT_DIR, voiceId, elevenLabsApiKey);
         } else {
             ttsAudioPath = await utils.generateTTSAudio(translatedText, targetLanguage, config.OUTPUT_DIR, ttsProvider);
         }
@@ -476,7 +477,7 @@ async function getEstimatedChunks(videoPath) {
 }
 
 // Long video processing function
-async function processLongVideoAsync(processId, videoPath, targetLanguage, ttsProvider, voiceId) {
+async function processLongVideoAsync(processId, videoPath, targetLanguage, ttsProvider, voiceId, elevenLabsApiKey) {
     try {
         const processor = new LongVideoProcessor();
 

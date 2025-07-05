@@ -197,15 +197,16 @@ async function getElevenLabsVoices() {
 }
 
 // Genera audio TTS usando ElevenLabs API
-async function generateElevenLabsTTS(text, targetLanguage, outputDir, voiceId = null) {
+async function generateElevenLabsTTS(text, targetLanguage, outputDir, voiceId = null, customApiKey = null) {
     const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
 
     try {
         console.log(`Generando audio TTS con ElevenLabs en idioma: ${targetLanguage}`);
 
-        // Validar API key
-        if (!config.ELEVENLABS_CONFIG.API_KEY) {
-            throw new Error('ELEVENLABS_API_KEY no está configurada. Por favor, configura tu API key en el archivo .env');
+        // Usar la API key personalizada si se proporciona
+        const apiKey = customApiKey || config.ELEVENLABS_CONFIG.API_KEY;
+        if (!apiKey) {
+            throw new Error('ELEVENLABS_API_KEY no está configurada. Por favor, configura tu API key en el archivo .env o ingrésala en la interfaz.');
         }
 
         // Si no se proporciona voiceId, usar el mapeo por idioma
@@ -234,7 +235,7 @@ async function generateElevenLabsTTS(text, targetLanguage, outputDir, voiceId = 
         const response = await fetch(`${config.ELEVENLABS_CONFIG.API_BASE_URL}${config.ELEVENLABS_CONFIG.TTS_ENDPOINT}/${selectedVoiceId}`, {
             method: 'POST',
             headers: {
-                'xi-api-key': config.ELEVENLABS_CONFIG.API_KEY,
+                'xi-api-key': apiKey,
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
