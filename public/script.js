@@ -179,7 +179,15 @@ async function pollProgress() {
     if (!processId) return;
 
     try {
-        const response = await fetch(`/api/progress/${processId}`);
+        const response = await fetch(`/api/progress/${processId}`, {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json',
+                'Cache-Control': 'no-cache'
+            },
+            // Timeout de 30 segundos
+            signal: AbortSignal.timeout(30000)
+        });
 
         // Verificar si la respuesta está vacía
         const responseText = await response.text();
@@ -211,8 +219,9 @@ async function pollProgress() {
             hideProgress();
             enableProcessButton();
         } else {
-            // Continue polling
-            setTimeout(pollProgress, 1000);
+            // Continue polling con intervalo variable
+            const interval = data.currentStep === 2 ? 2000 : 1000; // Más lento durante transcripción
+            setTimeout(pollProgress, interval);
         }
 
     } catch (error) {
@@ -221,12 +230,24 @@ async function pollProgress() {
         // Mostrar mensaje más específico según el tipo de error
         let errorMessage = 'Error al obtener el progreso: ' + error.message;
 
-        if (error.message.includes('respuesta vacía') || error.message.includes('inválida')) {
+        if (error.name === 'TimeoutError') {
+            errorMessage = 'Timeout: El servidor tardó demasiado en responder. Esto puede deberse a:\n' +
+                '• Procesamiento de video muy pesado\n' +
+                '• Límites del servicio gratuito\n' +
+                '• Problemas de red\n\n' +
+                'Intenta con un video más corto o espera unos minutos.';
+        } else if (error.message.includes('respuesta vacía') || error.message.includes('inválida')) {
             errorMessage = 'El servidor no respondió correctamente. Esto puede deberse a:\n' +
                 '• Timeout del servidor (común en servicios gratuitos)\n' +
                 '• Error durante el procesamiento\n' +
                 '• El servidor se reinició\n\n' +
                 'Intenta procesar un video más corto o espera unos minutos.';
+        } else if (error.message.includes('Failed to fetch')) {
+            errorMessage = 'No se pudo conectar con el servidor. Esto puede deberse a:\n' +
+                '• El servidor se cayó\n' +
+                '• Problemas de red\n' +
+                '• El servicio gratuito está sobrecargado\n\n' +
+                'Intenta recargar la página o espera unos minutos.';
         }
 
         showError(errorMessage);

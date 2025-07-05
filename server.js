@@ -11,6 +11,14 @@ const { spawn } = require('child_process');
 
 const app = express();
 
+// Middleware para manejar timeouts
+app.use((req, res, next) => {
+    // Timeout de 5 minutos para todas las requests
+    req.setTimeout(5 * 60 * 1000);
+    res.setTimeout(5 * 60 * 1000);
+    next();
+});
+
 app.use(express.static(config.PUBLIC_DIR));
 
 // Multer setup
@@ -141,6 +149,17 @@ function getProgressMessage(processId, currentStep, progress) {
 // Routes
 app.get('/', (req, res) => {
     res.sendFile(path.join(config.PUBLIC_DIR, 'index.html'));
+});
+
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+    res.json({
+        status: 'ok',
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime(),
+        memory: process.memoryUsage(),
+        activeProcesses: activeProcesses.size
+    });
 });
 
 // Endpoint para obtener voces de ElevenLabs
@@ -331,6 +350,12 @@ async function processVideoAsync(processId, videoPath, targetLanguage, ttsProvid
             failProcess(processId, 'Timeout: El procesamiento tardó demasiado tiempo. Intenta con un video más corto.');
         }, 10 * 60 * 1000); // 10 minutos
 
+        // Verificar que el proceso aún existe
+        if (!activeProcesses.has(processId)) {
+            clearTimeout(timeout);
+            return;
+        }
+
         // Step 1: Convert video to audio (20%)
         updateProcess(processId, 1, 20, 'Convirtiendo video a audio...');
         console.log('=== CONVERSIÓN VIDEO A AUDIO ===');
@@ -340,6 +365,12 @@ async function processVideoAsync(processId, videoPath, targetLanguage, ttsProvid
         console.log('Audio extraído:', audioPath);
         console.log('=====================================');
 
+        // Verificar que el proceso aún existe
+        if (!activeProcesses.has(processId)) {
+            clearTimeout(timeout);
+            return;
+        }
+
         // Step 2: Convert audio to text (40%)
         updateProcess(processId, 2, 40, 'Transcribiendo audio a texto...');
         const transcribedText = await transcribeAudio(audioPath);
@@ -347,10 +378,22 @@ async function processVideoAsync(processId, videoPath, targetLanguage, ttsProvid
         // Limpiar la transcripción
         const cleanText = utils.cleanTranscription(transcribedText);
 
+        // Verificar que el proceso aún existe
+        if (!activeProcesses.has(processId)) {
+            clearTimeout(timeout);
+            return;
+        }
+
         // Step 3: Translate text (60%)
         updateProcess(processId, 3, 60, `Traduciendo texto a ${targetLanguage}...`);
         const translatedText = await utils.translateText(cleanText, targetLanguage, config.TRANSLATION_CONFIG.USE_LINGVA);
         console.log('Texto traducido:', translatedText);
+
+        // Verificar que el proceso aún existe
+        if (!activeProcesses.has(processId)) {
+            clearTimeout(timeout);
+            return;
+        }
 
         // Step 4: Generate TTS audio (80%)
         const process = activeProcesses.get(processId);
@@ -368,6 +411,12 @@ async function processVideoAsync(processId, videoPath, targetLanguage, ttsProvid
         }
         console.log('Audio TTS generado:', ttsAudioPath);
         console.log('=====================================');
+
+        // Verificar que el proceso aún existe
+        if (!activeProcesses.has(processId)) {
+            clearTimeout(timeout);
+            return;
+        }
 
         // Step 5: Synchronize audio with video (90%)
         updateProcess(processId, 5, 90, 'Sincronizando audio con video...');
