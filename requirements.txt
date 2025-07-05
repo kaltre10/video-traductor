@@ -1,0 +1,2 @@
+gtts==2.4.0
+openai-whisper==20231117 
