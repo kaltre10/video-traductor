@@ -442,7 +442,7 @@ function failProcess(processId, error) {
 // Transcribe audio using Whisper local via Python
 async function transcribeAudio(audioPath) {
     return new Promise((resolve, reject) => {
-        const pythonProcess = spawn('python', [
+        const pythonProcess = spawn('python3', [
             '-m', 'whisper', audioPath, '--model', 'base', '--output_format', 'txt', '--output_dir', path.dirname(audioPath)
         ]);
         let output = '';
@@ -467,8 +467,14 @@ async function transcribeAudio(audioPath) {
                     reject(new Error('No se encontró el archivo de transcripción generado por Whisper.'));
                 }
             } else {
-                reject(new Error('Error en Whisper: ' + errorOutput));
+                console.error('Error en Whisper:', errorOutput);
+                reject(new Error('Error en transcripción: ' + errorOutput));
             }
+        });
+
+        pythonProcess.on('error', (error) => {
+            console.error('Error ejecutando Whisper:', error);
+            reject(new Error('Error ejecutando Whisper: ' + error.message));
         });
     });
 }

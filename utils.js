@@ -121,7 +121,7 @@ except Exception as e:
     print(f"ERROR:{str(e)}")
     sys.exit(1)
 `;
-            const pythonProcess = spawn('python', ['-c', pythonScript]);
+            const pythonProcess = spawn('python3', ['-c', pythonScript]);
             let output = '';
             let errorOutput = '';
 
