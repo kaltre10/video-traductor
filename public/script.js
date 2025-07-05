@@ -180,9 +180,21 @@ async function pollProgress() {
 
     try {
         const response = await fetch(`/api/progress/${processId}`);
-        const data = await response.json();
 
+        // Verificar si la respuesta está vacía
+        const responseText = await response.text();
+        if (!responseText || responseText.trim() === '') {
+            throw new Error('El servidor no respondió (respuesta vacía). El procesamiento puede haber fallado.');
+        }
 
+        // Intentar parsear JSON
+        let data;
+        try {
+            data = JSON.parse(responseText);
+        } catch (parseError) {
+            console.error('Error parsing JSON:', responseText);
+            throw new Error('Respuesta del servidor inválida. El procesamiento puede haber fallado.');
+        }
 
         updateProgress(data.progress, data.currentStep, data.status, data);
 
@@ -205,7 +217,19 @@ async function pollProgress() {
 
     } catch (error) {
         console.error('Error polling progress:', error);
-        showError('Error al obtener el progreso: ' + error.message);
+
+        // Mostrar mensaje más específico según el tipo de error
+        let errorMessage = 'Error al obtener el progreso: ' + error.message;
+
+        if (error.message.includes('respuesta vacía') || error.message.includes('inválida')) {
+            errorMessage = 'El servidor no respondió correctamente. Esto puede deberse a:\n' +
+                '• Timeout del servidor (común en servicios gratuitos)\n' +
+                '• Error durante el procesamiento\n' +
+                '• El servidor se reinició\n\n' +
+                'Intenta procesar un video más corto o espera unos minutos.';
+        }
+
+        showError(errorMessage);
         hideProgress();
         enableProcessButton();
     }

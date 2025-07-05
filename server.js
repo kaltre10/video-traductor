@@ -242,35 +242,55 @@ app.post('/api/process-video', upload.single('video'), async (req, res) => {
 
 // Progress endpoint
 app.get('/api/progress/:processId', (req, res) => {
-    const processId = req.params.processId;
-    const process = activeProcesses.get(processId);
+    try {
+        const processId = req.params.processId;
+        const process = activeProcesses.get(processId);
 
-    if (!process) {
-        return res.status(404).json({ error: 'Proceso no encontrado' });
+        if (!process) {
+            return res.status(404).json({
+                status: 'error',
+                error: 'Proceso no encontrado',
+                progress: 0,
+                currentStep: 0
+            });
+        }
+
+        // Calcular estimaciones de tiempo
+        const timeEstimates = calculateTimeEstimates(processId, process.currentStep, process.progress);
+        const progressMessage = getProgressMessage(processId, process.currentStep, process.progress);
+
+        const response = {
+            status: process.status,
+            progress: process.progress || 0,
+            currentStep: process.currentStep || 0,
+            error: process.error,
+            resultUrl: process.resultUrl,
+            translatedText: process.translatedText,
+            originalText: process.originalText,
+            durationMs: process.durationMs,
+            isLongVideo: process.isLongVideo,
+            totalChunks: process.totalChunks,
+            currentChunk: process.currentChunk,
+            // Información de tiempo
+            timeEstimates: timeEstimates,
+            progressMessage: progressMessage,
+            startTime: process.startTime,
+            estimatedCompletionTime: timeEstimates?.completionTime
+        };
+
+        // Asegurar que siempre devolvemos un JSON válido
+        res.setHeader('Content-Type', 'application/json');
+        res.json(response);
+
+    } catch (error) {
+        console.error('Error en endpoint progress:', error);
+        res.status(500).json({
+            status: 'error',
+            error: 'Error interno del servidor',
+            progress: 0,
+            currentStep: 0
+        });
     }
-
-    // Calcular estimaciones de tiempo
-    const timeEstimates = calculateTimeEstimates(processId, process.currentStep, process.progress);
-    const progressMessage = getProgressMessage(processId, process.currentStep, process.progress);
-
-    res.json({
-        status: process.status,
-        progress: process.progress,
-        currentStep: process.currentStep,
-        error: process.error,
-        resultUrl: process.resultUrl,
-        translatedText: process.translatedText,
-        originalText: process.originalText,
-        durationMs: process.durationMs,
-        isLongVideo: process.isLongVideo,
-        totalChunks: process.totalChunks,
-        currentChunk: process.currentChunk,
-        // Información de tiempo
-        timeEstimates: timeEstimates,
-        progressMessage: progressMessage,
-        startTime: process.startTime,
-        estimatedCompletionTime: timeEstimates?.completionTime
-    });
 });
 
 // Download endpoint
@@ -305,6 +325,12 @@ app.get('/api/download/:filename', (req, res) => {
 // Video processing function
 async function processVideoAsync(processId, videoPath, targetLanguage, ttsProvider, voiceId, elevenLabsApiKey) {
     try {
+        // Agregar timeout de 10 minutos para el procesamiento completo
+        const timeout = setTimeout(() => {
+            console.error(`Timeout en procesamiento ${processId}`);
+            failProcess(processId, 'Timeout: El procesamiento tardó demasiado tiempo. Intenta con un video más corto.');
+        }, 10 * 60 * 1000); // 10 minutos
+
         // Step 1: Convert video to audio (20%)
         updateProcess(processId, 1, 20, 'Convirtiendo video a audio...');
         console.log('=== CONVERSIÓN VIDEO A AUDIO ===');
@@ -353,6 +379,9 @@ async function processVideoAsync(processId, videoPath, targetLanguage, ttsProvid
         if (!fs.existsSync(finalVideoPath)) {
             throw new Error('Video final no se generó correctamente');
         }
+
+        // Limpiar timeout
+        clearTimeout(timeout);
 
         // Complete process - return final video
         const resultUrl = `/api/download/${path.basename(finalVideoPath)}`;
