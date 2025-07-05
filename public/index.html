@@ -61,6 +61,42 @@
                             <option value="hi">Hindi</option>
                         </select>
                     </div>
+                    <div class="language-group">
+                        <label for="ttsProvider">Proveedor de TTS:</label>
+                        <select id="ttsProvider" class="language-select" onchange="onTTSProviderChange()">
+                            <option value="gtts">gTTS (Google)</option>
+                            <option value="elevenlabs">ElevenLabs (Premium)</option>
+                        </select>
+                    </div>
+                    <div class="language-group" id="voiceSelectorGroup" style="display: none;">
+                        <label for="voiceSelector">Voz de ElevenLabs:</label>
+                        <select id="voiceSelector" class="language-select">
+                            <option value="">Cargando voces...</option>
+                        </select>
+                        <div class="voice-info" id="voiceInfo" style="display: none;">
+                            <small class="voice-details">
+                                <span id="voiceCategory"></span> •
+                                <span id="voiceLanguage"></span>
+                                <span id="voiceAccent" style="display: none;"></span>
+                            </small>
+                        </div>
+                        <div class="voice-warning" id="voiceWarning" style="display: none;">
+                            <small class="warning-text">
+                                <i class="fas fa-info-circle"></i>
+                                <strong>Nota:</strong> Solo se muestran voces limitadas. Para ver todas las voces
+                                disponibles,
+                                asegúrate de que tu API Key de ElevenLabs tenga el permiso "voices_read".
+                            </small>
+                        </div>
+                        <div class="voice-info-message" id="voiceInfoMessage" style="display: none;">
+                            <small class="info-text">
+                                <i class="fas fa-check-circle"></i>
+                                <strong>¡Perfecto!</strong> Todas las voces de ElevenLabs pueden hablar en cualquier
+                                idioma.
+                                Selecciona la voz que prefieras y el idioma de destino.
+                            </small>
+                        </div>
+                    </div>
                 </div>
             </section>
 
@@ -79,7 +115,69 @@
                         <div class="progress-fill" id="progressFill"></div>
                     </div>
                     <div class="progress-text" id="progressText">Preparando...</div>
+                    <button class="time-modal-btn" id="timeModalBtn" onclick="openTimeModal()" style="display: none;">
+                        <i class="fas fa-clock"></i>
+                        Ver Estimaciones de Tiempo
+                    </button>
                 </div>
+
+                <!-- Time Estimates Modal -->
+                <div class="time-modal" id="timeModal">
+                    <div class="time-modal-content">
+                        <div class="time-modal-header">
+                            <h3><i class="fas fa-clock"></i> Estimaciones de Tiempo</h3>
+                            <button class="time-modal-close" onclick="closeTimeModal()">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        <div class="time-modal-body">
+                            <div class="time-grid">
+                                <div class="time-card">
+                                    <div class="time-icon">
+                                        <i class="fas fa-clock"></i>
+                                    </div>
+                                    <div class="time-info">
+                                        <span class="time-label">Tiempo Transcurrido</span>
+                                        <span class="time-value" id="elapsedTime">--</span>
+                                    </div>
+                                </div>
+                                <div class="time-card">
+                                    <div class="time-icon">
+                                        <i class="fas fa-hourglass-half"></i>
+                                    </div>
+                                    <div class="time-info">
+                                        <span class="time-label">Tiempo Restante</span>
+                                        <span class="time-value" id="remainingTime">--</span>
+                                    </div>
+                                </div>
+                                <div class="time-card">
+                                    <div class="time-icon">
+                                        <i class="fas fa-calendar-check"></i>
+                                    </div>
+                                    <div class="time-info">
+                                        <span class="time-label">Completado Estimado</span>
+                                        <span class="time-value" id="completionTime">--</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="chunk-info" id="chunkInfo" style="display: none;">
+                                <div class="chunk-card">
+                                    <div class="chunk-icon">
+                                        <i class="fas fa-layer-group"></i>
+                                    </div>
+                                    <div class="chunk-info">
+                                        <span class="chunk-label">Procesando Chunk</span>
+                                        <span class="chunk-value">
+                                            <strong id="currentChunk">--</strong> de <strong
+                                                id="totalChunks">--</strong>
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="steps-container">
                     <div class="step" id="step1">
                         <i class="fas fa-music"></i>

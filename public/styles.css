@@ -179,6 +179,114 @@ body {
     box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
+/* Voice Selector Styles */
+#voiceSelectorGroup {
+    transition: all 0.3s ease;
+}
+
+#voiceSelectorGroup.show {
+    display: block !important;
+    animation: slideDown 0.3s ease;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+#voiceSelector optgroup {
+    font-weight: 600;
+    color: #667eea;
+    background: #f8f9ff;
+}
+
+#voiceSelector option {
+    padding: 8px;
+    font-weight: normal;
+    color: #333;
+}
+
+/* Voice Info Styles */
+.voice-info {
+    margin-top: 8px;
+    padding: 8px 12px;
+    background: #f8f9ff;
+    border-radius: 8px;
+    border-left: 3px solid #667eea;
+}
+
+.voice-details {
+    color: #666;
+    font-size: 0.85rem;
+}
+
+.voice-details span {
+    font-weight: 500;
+}
+
+#voiceCategory {
+    color: #667eea;
+    text-transform: capitalize;
+}
+
+#voiceLanguage {
+    color: #28a745;
+}
+
+#voiceAccent {
+    color: #ffc107;
+    font-style: italic;
+}
+
+/* Voice Warning Styles */
+.voice-warning {
+    margin-top: 8px;
+    padding: 8px 12px;
+    background: #fff3cd;
+    border: 1px solid #ffeaa7;
+    border-radius: 8px;
+    border-left: 3px solid #f39c12;
+}
+
+.warning-text {
+    color: #856404;
+    font-size: 0.85rem;
+    line-height: 1.4;
+}
+
+.warning-text i {
+    color: #f39c12;
+    margin-right: 4px;
+}
+
+/* Voice Info Message Styles */
+.voice-info-message {
+    margin-top: 8px;
+    padding: 8px 12px;
+    background: #d4edda;
+    border: 1px solid #c3e6cb;
+    border-radius: 8px;
+    border-left: 3px solid #28a745;
+}
+
+.info-text {
+    color: #155724;
+    font-size: 0.85rem;
+    line-height: 1.4;
+}
+
+.info-text i {
+    color: #28a745;
+    margin-right: 4px;
+}
+
 /* Process Button */
 .process-section {
     text-align: center;
@@ -239,6 +347,187 @@ body {
     font-weight: 600;
     color: #333;
 }
+
+/* Time Modal */
+.time-modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(5px);
+    animation: fadeIn 0.3s ease-out;
+}
+
+.time-modal-content {
+    background: white;
+    margin: 5% auto;
+    padding: 0;
+    border-radius: 20px;
+    width: 90%;
+    max-width: 600px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+    animation: slideIn 0.3s ease-out;
+    overflow: hidden;
+}
+
+.time-modal-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 20px 25px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.time-modal-header h3 {
+    margin: 0;
+    font-size: 1.3rem;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.time-modal-close {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 1.5rem;
+    cursor: pointer;
+    padding: 5px;
+    border-radius: 50%;
+    transition: all 0.3s ease;
+    width: 35px;
+    height: 35px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.time-modal-close:hover {
+    background: rgba(255, 255, 255, 0.2);
+    transform: scale(1.1);
+}
+
+.time-modal-body {
+    padding: 25px;
+}
+
+.time-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+.time-card {
+    background: linear-gradient(145deg, #f8f9ff 0%, #e8ecff 100%);
+    border-radius: 15px;
+    padding: 20px;
+    text-align: center;
+    border: 2px solid #e8ecff;
+    transition: all 0.3s ease;
+}
+
+.time-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 25px rgba(102, 126, 234, 0.2);
+}
+
+.time-icon {
+    margin-bottom: 15px;
+}
+
+.time-icon i {
+    font-size: 2rem;
+    color: #667eea;
+}
+
+.time-label {
+    display: block;
+    font-size: 0.9rem;
+    color: #666;
+    margin-bottom: 8px;
+    font-weight: 500;
+}
+
+.time-value {
+    display: block;
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: #333;
+}
+
+.chunk-card {
+    background: linear-gradient(145deg, #fff3cd 0%, #ffeaa7 100%);
+    border-radius: 15px;
+    padding: 20px;
+    text-align: center;
+    border: 2px solid #ffc107;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.chunk-icon i {
+    font-size: 2rem;
+    color: #ffc107;
+}
+
+.chunk-label {
+    display: block;
+    font-size: 0.9rem;
+    color: #856404;
+    margin-bottom: 5px;
+    font-weight: 500;
+}
+
+.chunk-value {
+    display: block;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #333;
+}
+
+/* Time Modal Button */
+.time-modal-btn {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    padding: 12px 20px;
+    border-radius: 25px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-top: 15px;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.time-modal-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+}
+
+/* Animations */
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-50px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+
 
 .steps-container {
     display: flex;
@@ -310,12 +599,39 @@ body {
 
 .video-preview {
     margin-bottom: 20px;
+    max-height: 500px;
+    overflow-y: auto;
+    border-radius: 10px;
+    background: #f8f9fa;
+    padding: 10px;
 }
 
 .video-preview video {
     max-width: 100%;
+    max-height: 480px;
     border-radius: 10px;
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    display: block;
+    margin: 0 auto;
+}
+
+/* Scroll personalizado para video preview */
+.video-preview::-webkit-scrollbar {
+    width: 8px;
+}
+
+.video-preview::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+.video-preview::-webkit-scrollbar-thumb {
+    background: #667eea;
+    border-radius: 4px;
+}
+
+.video-preview::-webkit-scrollbar-thumb:hover {
+    background: #5a6fd8;
 }
 
 .download-btn {
@@ -442,4 +758,39 @@ body {
 
 .pulse {
     animation: pulse 2s infinite;
+}
+
+/* Mobile modal styles */
+@media (max-width: 768px) {
+    .time-modal-content {
+        margin: 10% auto;
+        width: 95%;
+        max-width: none;
+    }
+
+    .time-grid {
+        grid-template-columns: 1fr;
+        gap: 15px;
+    }
+
+    .time-card {
+        padding: 15px;
+    }
+
+    .time-modal-header {
+        padding: 15px 20px;
+    }
+
+    .time-modal-header h3 {
+        font-size: 1.1rem;
+    }
+
+    .time-modal-body {
+        padding: 20px;
+    }
+
+    .chunk-card {
+        flex-direction: column;
+        text-align: center;
+    }
 }

@@ -11,7 +11,7 @@ Este proyecto permite subir un archivo de video, extraer el audio y transcribirl
 ```
 Video → Audio → Texto → Traducción → Audio TTS → Video Final
   ↓       ↓         ↓         ↓           ↓          ↓
-FFmpeg  Whisper  LibreTranslate  gTTS     FFmpeg     Resultado
+FFmpeg  Whisper  LibreTranslate  gTTS/ElevenLabs  FFmpeg  Resultado
 ```
 
 ### Pasos detallados:
@@ -20,7 +20,7 @@ FFmpeg  Whisper  LibreTranslate  gTTS     FFmpeg     Resultado
 2. **Conversión Video → Audio** - FFmpeg extrae audio MP3
 3. **Transcripción Audio → Texto** - Whisper transcribe el audio
 4. **Traducción Texto** - LibreTranslate/Lingva traduce al idioma seleccionado
-5. **Generación Audio TTS** - gTTS crea audio en el idioma destino
+5. **Generación Audio TTS** - gTTS (gratuito) o ElevenLabs (premium) crea audio en el idioma destino
 6. **Sincronización** - FFmpeg combina video original con audio traducido
 7. **Resultado** - Video traducido disponible para descarga
 
@@ -117,9 +117,19 @@ libretranslate --host 0.0.0.0 --port 5000
 export USE_LINGVA=true
 ```
 
-### 4. Subir video
+### 4. Configurar ElevenLabs (opcional - para TTS premium)
+```bash
+# Crear archivo .env
+cp env.example .env
+
+# Editar .env y agregar tu API key de ElevenLabs
+ELEVENLABS_API_KEY=tu_api_key_aqui
+```
+
+### 5. Subir video
 - Arrastra un archivo de video o haz clic para seleccionar
 - Selecciona el idioma de destino
+- **Elige el proveedor de TTS**: gTTS (gratuito) o ElevenLabs (premium)
 - El sistema procesará automáticamente
 - El video traducido aparecerá al finalizar
 
@@ -173,13 +183,31 @@ Descarga archivos procesados
 ## 🎯 Características
 
 ### ✅ Ventajas:
-- **Gratuito** - Sin costos ni límites
+- **Gratuito** - Sin costos ni límites (con gTTS)
 - **Local** - Funciona offline
 - **Alta calidad** - Usa Whisper de OpenAI
 - **Múltiples idiomas** - Detección automática
 - **Interfaz moderna** - Drag & drop
 - **Progreso en tiempo real** - Barra de progreso
 - **Arquitectura modular** - Fácil mantenimiento
+- **TTS Premium** - Opción ElevenLabs para mejor calidad de voz
+
+### 🎤 Proveedores de TTS:
+
+#### gTTS (Google Text-to-Speech) - **Gratuito**
+- ✅ Sin costos
+- ✅ Múltiples idiomas
+- ✅ Fácil de usar
+- ❌ Calidad de voz básica
+- ❌ Requiere conexión a internet
+
+#### ElevenLabs - **Premium**
+- ✅ Calidad de voz profesional
+- ✅ Voces naturales y expresivas
+- ✅ Múltiples voces por idioma
+- ❌ Requiere API key
+- ❌ Consume créditos
+- ❌ Requiere conexión a internet
 
 ### 📊 Formatos soportados:
 - **Video**: MP4, AVI, MOV, WMV, FLV, WebM

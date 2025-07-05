@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Doblaje de Video con ElevenLabs</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+
+<body>
+    <div class="container">
+        <header class="header">
+            <h1><i class="fas fa-microphone"></i> Doblaje de Video con ElevenLabs</h1>
+            <p>Dobla videos a diferentes idiomas usando IA profesional</p>
+        </header>
+
+        <main class="main-content">
+            <!-- Upload Section -->
+            <section class="upload-section">
+                <div class="upload-area" id="uploadArea">
+                    <div class="upload-content">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                        <h3>Arrastra tu video aquí</h3>
+                        <p>o haz clic para seleccionar archivo</p>
+                        <input type="file" id="videoInput" accept="video/*" hidden>
+                        <button class="upload-btn" id="uploadBtn">
+                            Seleccionar Video
+                        </button>
+                    </div>
+                </div>
+                <div class="file-info" id="fileInfo" style="display: none;">
+                    <div class="file-details">
+                        <i class="fas fa-video"></i>
+                        <span id="fileName"></span>
+                        <button class="remove-btn" onclick="removeFile()">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Language Selection -->
+            <section class="language-section">
+                <div class="language-selector">
+                    <div class="language-group">
+                        <label for="targetLanguage">Idioma de destino:</label>
+                        <select id="targetLanguage" class="language-select">
+                            <option value="en">Inglés</option>
+                            <option value="es">Español</option>
+                            <option value="fr">Francés</option>
+                            <option value="de">Alemán</option>
+                            <option value="it">Italiano</option>
+                            <option value="pt">Portugués</option>
+                            <option value="ja">Japonés</option>
+                            <option value="ko">Coreano</option>
+                            <option value="zh">Chino</option>
+                            <option value="ru">Ruso</option>
+                            <option value="ar">Árabe</option>
+                            <option value="hi">Hindi</option>
+                        </select>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Process Button -->
+            <section class="process-section">
+                <button class="process-btn" id="processBtn" onclick="processVideo()" disabled>
+                    <i class="fas fa-play"></i>
+                    Iniciar Doblaje
+                </button>
+            </section>
+
+            <!-- Progress Section -->
+            <section class="progress-section" id="progressSection" style="display: none;">
+                <div class="progress-container">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressFill"></div>
+                    </div>
+                    <div class="progress-text" id="progressText">Preparando...</div>
+                    <button class="time-modal-btn" id="timeModalBtn" onclick="openTimeModal()" style="display: none;">
+                        <i class="fas fa-clock"></i>
+                        Ver Estimaciones de Tiempo
+                    </button>
+                </div>
+
+                <!-- Time Estimates Modal -->
+                <div class="time-modal" id="timeModal">
+                    <div class="time-modal-content">
+                        <div class="time-modal-header">
+                            <h3><i class="fas fa-clock"></i> Estimaciones de Tiempo</h3>
+                            <button class="time-modal-close" onclick="closeTimeModal()">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        <div class="time-modal-body">
+                            <div class="time-grid">
+                                <div class="time-card">
+                                    <div class="time-icon">
+                                        <i class="fas fa-clock"></i>
+                                    </div>
+                                    <div class="time-info">
+                                        <span class="time-label">Tiempo Transcurrido</span>
+                                        <span class="time-value" id="elapsedTime">--</span>
+                                    </div>
+                                </div>
+                                <div class="time-card">
+                                    <div class="time-icon">
+                                        <i class="fas fa-hourglass-half"></i>
+                                    </div>
+                                    <div class="time-info">
+                                        <span class="time-label">Tiempo Restante</span>
+                                        <span class="time-value" id="remainingTime">--</span>
+                                    </div>
+                                </div>
+                                <div class="time-card">
+                                    <div class="time-icon">
+                                        <i class="fas fa-calendar-check"></i>
+                                    </div>
+                                    <div class="time-info">
+                                        <span class="time-label">Completado Estimado</span>
+                                        <span class="time-value" id="completionTime">--</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="steps-container">
+                    <div class="step" id="step1">
+                        <i class="fas fa-upload"></i>
+                        <span>Subiendo video</span>
+                    </div>
+                    <div class="step" id="step2">
+                        <i class="fas fa-microphone"></i>
+                        <span>Doblando</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Results Section -->
+            <section class="results-section" id="resultsSection" style="display: none;">
+                <div class="result-card">
+                    <h3><i class="fas fa-check-circle"></i> Doblaje Completado</h3>
+                    <div class="video-preview">
+                        <video id="resultVideo" controls>
+                            Tu navegador no soporta el elemento video.
+                        </video>
+                    </div>
+                    <div class="download-section">
+                        <button class="download-btn" onclick="downloadVideo()">
+                            <i class="fas fa-download"></i>
+                            Descargar Video Doblado
+                        </button>
+                    </div>
+                    <div id="result"></div>
+                </div>
+            </section>
+
+            <!-- Error Section -->
+            <section class="error-section" id="errorSection" style="display: none;">
+                <div class="error-card">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <h3>Error en el proceso</h3>
+                    <p id="errorMessage"></p>
+                    <button class="retry-btn" onclick="retryProcess()">
+                        <i class="fas fa-redo"></i>
+                        Intentar de nuevo
+                    </button>
+                </div>
+            </section>
+
+            <!-- Credits Section -->
+            <section class="credits-section" id="creditsSection" style="display: none;">
+                <div class="credits-card">
+                    <h3><i class="fas fa-coins"></i> Créditos ElevenLabs</h3>
+                    <div class="credits-info">
+                        <div class="credit-item">
+                            <span>Caracteres usados:</span>
+                            <strong id="usedChars">--</strong>
+                        </div>
+                        <div class="credit-item">
+                            <span>Límite de caracteres:</span>
+                            <strong id="charLimit">--</strong>
+                        </div>
+                        <div class="credit-item">
+                            <span>Disponible:</span>
+                            <strong id="availableChars">--</strong>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+
+</html>

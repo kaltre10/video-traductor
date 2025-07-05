@@ -93,10 +93,19 @@ function cleanTranscription(rawText) {
 }
 
 // Genera audio TTS usando Python gTTS
-async function generateTTSAudio(text, targetLanguage, outputDir) {
+async function generateTTSAudio(text, targetLanguage, outputDir, ttsProvider = 'gtts') {
+    if (ttsProvider === 'elevenlabs') {
+        return generateElevenLabsTTS(text, targetLanguage, outputDir);
+    } else {
+        return generateGTTSAudio(text, targetLanguage, outputDir);
+    }
+}
+
+// Genera audio TTS usando Python gTTS (método original)
+async function generateGTTSAudio(text, targetLanguage, outputDir) {
     return new Promise((resolve, reject) => {
         try {
-            console.log(`Generando audio TTS en idioma: ${targetLanguage}`);
+            console.log(`Generando audio TTS con gTTS en idioma: ${targetLanguage}`);
             const audioPath = path.join(outputDir, `tts_audio_${Date.now()}.mp3`);
             const pythonScript = `
 import gtts
@@ -127,18 +136,134 @@ except Exception as e:
             pythonProcess.on('close', (code) => {
                 if (code === 0 && output.includes('SUCCESS:')) {
                     const successPath = output.split('SUCCESS:')[1].trim();
-                    console.log('Audio TTS generado:', successPath);
+                    console.log('Audio TTS generado con gTTS:', successPath);
                     resolve(successPath);
                 } else {
-                    console.error('Error generando TTS:', errorOutput, output);
-                    reject(new Error('Error generando TTS: ' + errorOutput + output));
+                    console.error('Error generando TTS con gTTS:', errorOutput, output);
+                    reject(new Error('Error generando TTS con gTTS: ' + errorOutput + output));
                 }
             });
         } catch (error) {
-            console.error('Error en generateTTSAudio:', error);
+            console.error('Error en generateGTTSAudio:', error);
             reject(error);
         }
     });
+}
+
+// Obtiene las voces disponibles de ElevenLabs
+async function getElevenLabsVoices() {
+    const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
+
+    try {
+        // Validar API key
+        if (!config.ELEVENLABS_CONFIG.API_KEY) {
+            throw new Error('ELEVENLABS_API_KEY no está configurada. Por favor, configura tu API key en el archivo .env');
+        }
+
+        const response = await fetch(`${config.ELEVENLABS_CONFIG.API_BASE_URL}/voices`, {
+            method: 'GET',
+            headers: {
+                'xi-api-key': config.ELEVENLABS_CONFIG.API_KEY
+            }
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Error obteniendo voces de ElevenLabs: ${response.status} - ${errorText}`);
+        }
+
+        const data = await response.json();
+        const voices = data.voices || [];
+
+        // Agregar información adicional a cada voz
+        const enhancedVoices = voices.map(voice => ({
+            ...voice,
+            displayName: `${voice.name}${voice.labels?.accent ? ` (${voice.labels.accent})` : ''}`,
+            category: voice.category || 'premade',
+            language: voice.labels?.language || 'en',
+            accent: voice.labels?.accent || null,
+            gender: voice.labels?.gender || null,
+            age: voice.labels?.age || null,
+            // Agregar información adicional para mostrar
+            description: `${voice.name} - ${voice.category}${voice.labels?.accent ? ` - ${voice.labels.accent}` : ''}`
+        }));
+
+        return enhancedVoices;
+
+    } catch (error) {
+        console.error('Error obteniendo voces de ElevenLabs:', error);
+        throw error;
+    }
+}
+
+// Genera audio TTS usando ElevenLabs API
+async function generateElevenLabsTTS(text, targetLanguage, outputDir, voiceId = null) {
+    const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
+
+    try {
+        console.log(`Generando audio TTS con ElevenLabs en idioma: ${targetLanguage}`);
+
+        // Validar API key
+        if (!config.ELEVENLABS_CONFIG.API_KEY) {
+            throw new Error('ELEVENLABS_API_KEY no está configurada. Por favor, configura tu API key en el archivo .env');
+        }
+
+        // Si no se proporciona voiceId, usar el mapeo por idioma
+        let selectedVoiceId = voiceId;
+        if (!selectedVoiceId) {
+            const voiceMapping = {
+                'en': '21m00Tcm4TlvDq8ikWAM', // Rachel - English
+                'es': 'EXAVITQu4vr4xnSDxMaL', // Bella - Spanish
+                'fr': 'yoZ06aMxZJJ28mfd3POQ', // Josh - French
+                'de': 'AZnzlk1XvdvUeBnXmlld', // Domi - German
+                'it': 'pNInz6obpgDQGcFmaJgB', // Adam - Italian
+                'pt': 'VR6AewLTigWG4xSOukaG', // Sam - Portuguese
+                'ja': 'ThT5KcBeYPX3keUQqHPh', // Antoni - Japanese
+                'ko': 'VR6AewLTigWG4xSOukaG', // Sam - Korean (fallback)
+                'zh': 'VR6AewLTigWG4xSOukaG', // Sam - Chinese (fallback)
+                'ru': 'VR6AewLTigWG4xSOukaG', // Sam - Russian (fallback)
+                'ar': 'VR6AewLTigWG4xSOukaG', // Sam - Arabic (fallback)
+                'hi': 'VR6AewLTigWG4xSOukaG'  // Sam - Hindi (fallback)
+            };
+            selectedVoiceId = voiceMapping[targetLanguage] || voiceMapping['en'];
+        }
+
+        const audioPath = path.join(outputDir, `elevenlabs_tts_${Date.now()}.mp3`);
+
+        // Realizar petición a ElevenLabs
+        const response = await fetch(`${config.ELEVENLABS_CONFIG.API_BASE_URL}${config.ELEVENLABS_CONFIG.TTS_ENDPOINT}/${selectedVoiceId}`, {
+            method: 'POST',
+            headers: {
+                'xi-api-key': config.ELEVENLABS_CONFIG.API_KEY,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                text: text,
+                model_id: 'eleven_monolingual_v1',
+                voice_settings: {
+                    stability: 0.5,
+                    similarity_boost: 0.5
+                }
+            })
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Error response ElevenLabs:', errorText);
+            throw new Error(`Error en ElevenLabs API: ${response.status} - ${errorText}`);
+        }
+
+        // Guardar el audio
+        const audioBuffer = await response.arrayBuffer();
+        await fs.writeFile(audioPath, Buffer.from(audioBuffer));
+
+        console.log('Audio TTS generado con ElevenLabs:', audioPath);
+        return audioPath;
+
+    } catch (error) {
+        console.error('Error en generateElevenLabsTTS:', error);
+        throw error;
+    }
 }
 
 // Sincroniza audio TTS con video
@@ -178,7 +303,10 @@ module.exports = {
     transcribeAudio,
     translateText,
     generateTTSAudio,
+    generateGTTSAudio,
+    generateElevenLabsTTS,
     synchronizeAudioWithVideo,
     cleanupTempFiles,
-    cleanTranscription
+    cleanTranscription,
+    getElevenLabsVoices
 };

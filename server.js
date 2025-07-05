@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const multer = require('multer');
 const fs = require('fs-extra');
@@ -5,6 +6,7 @@ const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const config = require('./config');
 const utils = require('./utils');
+const LongVideoProcessor = require('./long-video-processor');
 const { spawn } = require('child_process');
 
 const app = express();
@@ -35,10 +37,159 @@ const upload = multer({
 // Store active processes
 const activeProcesses = new Map();
 
+// Helper functions for time estimation
+function calculateTimeEstimates(processId, currentStep, progress) {
+    const process = activeProcesses.get(processId);
+    if (!process) return null;
+
+    const now = Date.now();
+    const elapsedMs = now - process.startTime;
+    const elapsedMinutes = elapsedMs / (1000 * 60);
+
+    // Tiempo estimado por paso (en minutos)
+    const stepTimeEstimates = {
+        1: 0.5,  // Video → Audio
+        2: 2.0,  // Audio → Texto (Whisper es el más lento)
+        3: 1.0,  // Texto → Traducción
+        4: 1.5,  // Texto → TTS
+        5: 1.0   // Sincronización
+    };
+
+    // Para videos largos, ajustar estimaciones
+    if (process.isLongVideo && process.totalChunks > 1) {
+        const chunkProgress = process.currentChunk / process.totalChunks;
+        const totalEstimatedMinutes = process.totalChunks * 6; // ~6 minutos por chunk
+        const remainingMinutes = totalEstimatedMinutes * (1 - chunkProgress);
+
+        return {
+            elapsed: formatTime(elapsedMs),
+            estimated: formatTime(remainingMinutes * 60 * 1000),
+            remaining: formatTime(remainingMinutes * 60 * 1000),
+            totalEstimated: formatTime(totalEstimatedMinutes * 60 * 1000),
+            completionTime: new Date(now + (remainingMinutes * 60 * 1000)).toLocaleTimeString()
+        };
+    }
+
+    // Para videos normales
+    const totalSteps = 5;
+    const completedSteps = currentStep - 1;
+    const remainingSteps = totalSteps - completedSteps;
+
+    // Calcular tiempo promedio por paso basado en el tiempo transcurrido
+    const avgTimePerStep = elapsedMinutes / Math.max(completedSteps, 1);
+    const remainingMinutes = remainingSteps * avgTimePerStep;
+
+    // Si es el primer paso, usar estimaciones predefinidas
+    if (completedSteps === 0) {
+        const totalEstimatedMinutes = Object.values(stepTimeEstimates).reduce((a, b) => a + b, 0);
+        const remainingMinutes = totalEstimatedMinutes;
+
+        return {
+            elapsed: formatTime(elapsedMs),
+            estimated: formatTime(remainingMinutes * 60 * 1000),
+            remaining: formatTime(remainingMinutes * 60 * 1000),
+            totalEstimated: formatTime(totalEstimatedMinutes * 60 * 1000),
+            completionTime: new Date(now + (remainingMinutes * 60 * 1000)).toLocaleTimeString()
+        };
+    }
+
+    return {
+        elapsed: formatTime(elapsedMs),
+        estimated: formatTime(remainingMinutes * 60 * 1000),
+        remaining: formatTime(remainingMinutes * 60 * 1000),
+        totalEstimated: formatTime((elapsedMinutes + remainingMinutes) * 60 * 1000),
+        completionTime: new Date(now + (remainingMinutes * 60 * 1000)).toLocaleTimeString()
+    };
+}
+
+function formatTime(milliseconds) {
+    const seconds = Math.floor(milliseconds / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+
+    if (hours > 0) {
+        return `${hours}h ${minutes % 60}m ${seconds % 60}s`;
+    } else if (minutes > 0) {
+        return `${minutes}m ${seconds % 60}s`;
+    } else {
+        return `${seconds}s`;
+    }
+}
+
+function getProgressMessage(processId, currentStep, progress) {
+    const process = activeProcesses.get(processId);
+    if (!process) return 'Procesando...';
+
+    const stepMessages = {
+        1: 'Convirtiendo video a audio...',
+        2: 'Transcribiendo audio a texto...',
+        3: 'Traduciendo texto...',
+        4: 'Generando audio TTS...',
+        5: 'Sincronizando audio con video...'
+    };
+
+    let message = stepMessages[currentStep] || 'Procesando...';
+
+    // Para videos largos, agregar información de chunks
+    if (process.isLongVideo && process.totalChunks > 1) {
+        message = `Chunk ${process.currentChunk}/${process.totalChunks}: ${message}`;
+    }
+
+    return message;
+}
+
 // Routes
 app.get('/', (req, res) => {
     res.sendFile(path.join(config.PUBLIC_DIR, 'index.html'));
 });
+
+// Endpoint para obtener voces de ElevenLabs
+app.get('/api/elevenlabs-voices', async (req, res) => {
+    try {
+        const voices = await utils.getElevenLabsVoices();
+        res.json({ voices });
+    } catch (error) {
+        console.error('Error obteniendo voces de ElevenLabs:', error);
+        res.status(500).json({
+            error: error.message || 'Error obteniendo voces de ElevenLabs',
+            fallbackVoices: [
+                // Voces en Inglés
+                { voice_id: '21m00Tcm4TlvDq8ikWAM', name: 'Rachel', category: 'premade', labels: { language: 'en' } },
+                { voice_id: 'AZnzlk1XvdvUeBnXmlld', name: 'Domi', category: 'premade', labels: { language: 'en' } },
+                { voice_id: 'EXAVITQu4vr4xnSDxMaL', name: 'Bella', category: 'premade', labels: { language: 'en' } },
+                { voice_id: 'VR6AewLTigWG4xSOukaG', name: 'Sam', category: 'premade', labels: { language: 'en' } },
+                { voice_id: 'yoZ06aMxZJJ28mfd3POQ', name: 'Josh', category: 'premade', labels: { language: 'en' } },
+                { voice_id: 'pNInz6obpgDQGcFmaJgB', name: 'Adam', category: 'premade', labels: { language: 'en' } },
+                { voice_id: 'ThT5KcBeYPX3keUQqHPh', name: 'Antoni', category: 'premade', labels: { language: 'en' } },
+                { voice_id: 'VR6AewLTigWG4xSOukaG', name: 'Sam', category: 'premade', labels: { language: 'en' } },
+
+                // Voces en Español
+                { voice_id: 'EXAVITQu4vr4xnSDxMaL', name: 'Bella', category: 'premade', labels: { language: 'es' } },
+                { voice_id: 'VR6AewLTigWG4xSOukaG', name: 'Sam', category: 'premade', labels: { language: 'es' } },
+
+                // Voces en Francés
+                { voice_id: 'yoZ06aMxZJJ28mfd3POQ', name: 'Josh', category: 'premade', labels: { language: 'fr' } },
+                { voice_id: 'VR6AewLTigWG4xSOukaG', name: 'Sam', category: 'premade', labels: { language: 'fr' } },
+
+                // Voces en Alemán
+                { voice_id: 'AZnzlk1XvdvUeBnXmlld', name: 'Domi', category: 'premade', labels: { language: 'de' } },
+                { voice_id: 'VR6AewLTigWG4xSOukaG', name: 'Sam', category: 'premade', labels: { language: 'de' } },
+
+                // Voces en Italiano
+                { voice_id: 'pNInz6obpgDQGcFmaJgB', name: 'Adam', category: 'premade', labels: { language: 'it' } },
+                { voice_id: 'VR6AewLTigWG4xSOukaG', name: 'Sam', category: 'premade', labels: { language: 'it' } },
+
+                // Voces en Portugués
+                { voice_id: 'VR6AewLTigWG4xSOukaG', name: 'Sam', category: 'premade', labels: { language: 'pt' } },
+
+                // Voces en Japonés
+                { voice_id: 'ThT5KcBeYPX3keUQqHPh', name: 'Antoni', category: 'premade', labels: { language: 'ja' } },
+                { voice_id: 'VR6AewLTigWG4xSOukaG', name: 'Sam', category: 'premade', labels: { language: 'ja' } }
+            ]
+        });
+    }
+});
+
 
 // Process video endpoint
 app.post('/api/process-video', upload.single('video'), async (req, res) => {
@@ -46,22 +197,41 @@ app.post('/api/process-video', upload.single('video'), async (req, res) => {
         utils.validateVideoFile(req.file);
 
         const processId = uuidv4();
+        const videoPath = req.file.path;
+        const targetLanguage = req.body.targetLanguage || 'en';
+        const ttsProvider = req.body.ttsProvider || 'gtts';
+        const voiceId = req.body.voiceId || null;
+
+        // Verificar si es un video largo
+        const isLongVideo = await checkIfLongVideo(videoPath);
 
         // Initialize process
         activeProcesses.set(processId, {
             status: 'processing',
             progress: 0,
             currentStep: 1,
-            videoPath: req.file.path,
-            targetLanguage: req.body.targetLanguage || 'en',
+            videoPath: videoPath,
+            targetLanguage: targetLanguage,
+            ttsProvider: ttsProvider,
+            voiceId: voiceId,
             error: null,
-            startTime: Date.now()
+            startTime: Date.now(),
+            isLongVideo: isLongVideo,
+            totalChunks: isLongVideo ? await getEstimatedChunks(videoPath) : 1
         });
 
         // Start processing in background
-        processVideoAsync(processId, req.file.path, req.body.targetLanguage || 'en');
+        if (isLongVideo) {
+            processLongVideoAsync(processId, videoPath, targetLanguage, ttsProvider, voiceId);
+        } else {
+            processVideoAsync(processId, videoPath, targetLanguage, ttsProvider, voiceId);
+        }
 
-        res.json({ processId: processId });
+        res.json({
+            processId: processId,
+            isLongVideo: isLongVideo,
+            estimatedChunks: isLongVideo ? await getEstimatedChunks(videoPath) : 1
+        });
 
     } catch (error) {
         console.error('Error in process-video:', error);
@@ -78,6 +248,10 @@ app.get('/api/progress/:processId', (req, res) => {
         return res.status(404).json({ error: 'Proceso no encontrado' });
     }
 
+    // Calcular estimaciones de tiempo
+    const timeEstimates = calculateTimeEstimates(processId, process.currentStep, process.progress);
+    const progressMessage = getProgressMessage(processId, process.currentStep, process.progress);
+
     res.json({
         status: process.status,
         progress: process.progress,
@@ -86,7 +260,15 @@ app.get('/api/progress/:processId', (req, res) => {
         resultUrl: process.resultUrl,
         translatedText: process.translatedText,
         originalText: process.originalText,
-        durationMs: process.durationMs
+        durationMs: process.durationMs,
+        isLongVideo: process.isLongVideo,
+        totalChunks: process.totalChunks,
+        currentChunk: process.currentChunk,
+        // Información de tiempo
+        timeEstimates: timeEstimates,
+        progressMessage: progressMessage,
+        startTime: process.startTime,
+        estimatedCompletionTime: timeEstimates?.completionTime
     });
 });
 
@@ -120,7 +302,7 @@ app.get('/api/download/:filename', (req, res) => {
 });
 
 // Video processing function
-async function processVideoAsync(processId, videoPath, targetLanguage) {
+async function processVideoAsync(processId, videoPath, targetLanguage, ttsProvider, voiceId) {
     try {
         // Step 1: Convert video to audio (20%)
         updateProcess(processId, 1, 20, 'Convirtiendo video a audio...');
@@ -144,9 +326,19 @@ async function processVideoAsync(processId, videoPath, targetLanguage) {
         console.log('Texto traducido:', translatedText);
 
         // Step 4: Generate TTS audio (80%)
-        updateProcess(processId, 4, 80, `Generando audio en ${targetLanguage}...`);
+        const process = activeProcesses.get(processId);
+        const ttsProviderName = ttsProvider === 'elevenlabs' ? 'ElevenLabs' : 'gTTS';
+
+        updateProcess(processId, 4, 80, `Generando audio con ${ttsProviderName} en ${targetLanguage}...`);
         console.log('=== GENERACIÓN DE AUDIO TTS ===');
-        const ttsAudioPath = await utils.generateTTSAudio(translatedText, targetLanguage, config.OUTPUT_DIR);
+        console.log(`Proveedor TTS: ${ttsProviderName}`);
+
+        let ttsAudioPath;
+        if (ttsProvider === 'elevenlabs') {
+            ttsAudioPath = await utils.generateElevenLabsTTS(translatedText, targetLanguage, config.OUTPUT_DIR, voiceId);
+        } else {
+            ttsAudioPath = await utils.generateTTSAudio(translatedText, targetLanguage, config.OUTPUT_DIR, ttsProvider);
+        }
         console.log('Audio TTS generado:', ttsAudioPath);
         console.log('=====================================');
 
@@ -182,7 +374,17 @@ function updateProcess(processId, step, progress, message) {
     if (process) {
         process.currentStep = step;
         process.progress = progress;
+
+        // Calcular tiempo estimado restante
+        const timeEstimates = calculateTimeEstimates(processId, step, progress);
+        const progressMessage = getProgressMessage(processId, step, progress);
+
         console.log(`Step ${step}: ${message}`);
+        if (timeEstimates) {
+            console.log(`⏱️  Tiempo transcurrido: ${timeEstimates.elapsed}`);
+            console.log(`⏳ Tiempo restante estimado: ${timeEstimates.remaining}`);
+            console.log(`🕐 Completado estimado: ${timeEstimates.completionTime}`);
+        }
     }
 }
 
@@ -239,6 +441,82 @@ async function transcribeAudio(audioPath) {
             }
         });
     });
+}
+
+// Helper functions for long videos
+async function checkIfLongVideo(videoPath) {
+    return new Promise((resolve, reject) => {
+        const ffmpeg = require('fluent-ffmpeg');
+        ffmpeg.ffprobe(videoPath, (err, metadata) => {
+            if (err) return reject(err);
+
+            const duration = metadata.format.duration; // en segundos
+            const isLong = duration > config.LONG_VIDEO_CONFIG.CHUNK_DURATION;
+
+            console.log(`Video duration: ${duration}s (${Math.round(duration / 60)} minutes)`);
+            console.log(`Is long video: ${isLong}`);
+
+            resolve(isLong);
+        });
+    });
+}
+
+async function getEstimatedChunks(videoPath) {
+    return new Promise((resolve, reject) => {
+        const ffmpeg = require('fluent-ffmpeg');
+        ffmpeg.ffprobe(videoPath, (err, metadata) => {
+            if (err) return reject(err);
+
+            const duration = metadata.format.duration;
+            const chunks = Math.ceil(duration / config.LONG_VIDEO_CONFIG.CHUNK_DURATION);
+
+            resolve(chunks);
+        });
+    });
+}
+
+// Long video processing function
+async function processLongVideoAsync(processId, videoPath, targetLanguage, ttsProvider, voiceId) {
+    try {
+        const processor = new LongVideoProcessor();
+
+        // Progress callback
+        const progressCallback = (progressData) => {
+            const process = activeProcesses.get(processId);
+            if (process) {
+                process.progress = progressData.progress;
+                process.currentStep = progressData.step;
+                process.currentChunk = progressData.currentChunk;
+                process.totalChunks = progressData.totalChunks;
+
+                // Calcular y mostrar estimaciones de tiempo
+                const timeEstimates = calculateTimeEstimates(processId, progressData.step, progressData.progress);
+                const progressMessage = getProgressMessage(processId, progressData.step, progressData.progress);
+
+                console.log(`📊 Progreso: ${progressData.progress.toFixed(1)}%`);
+                console.log(`🔄 ${progressMessage}`);
+                if (timeEstimates) {
+                    console.log(`⏱️  Tiempo transcurrido: ${timeEstimates.elapsed}`);
+                    console.log(`⏳ Tiempo restante: ${timeEstimates.remaining}`);
+                    console.log(`🕐 Completado estimado: ${timeEstimates.completionTime}`);
+                }
+            }
+        };
+
+        // Process the long video
+        const result = await processor.processLongVideo(videoPath, targetLanguage, progressCallback);
+
+        // Complete process
+        const resultUrl = `/api/download/${path.basename(result.finalVideoPath)}`;
+        completeProcess(processId, resultUrl, result.chunks[0]?.translatedText, result.chunks[0]?.originalText);
+
+        // Cleanup original video
+        await utils.cleanupTempFiles(videoPath);
+
+    } catch (error) {
+        console.error('Error processing long video:', error);
+        failProcess(processId, error.message);
+    }
 }
 
 app.listen(config.PORT, () => {

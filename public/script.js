@@ -29,6 +29,9 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         });
     }
+
+    // Cargar voces de ElevenLabs al inicializar
+    loadElevenLabsVoices();
 });
 
 // Drag and drop functionality
@@ -77,9 +80,9 @@ function handleFileSelection(file) {
         return;
     }
 
-    // Validate file size (max 100MB)
-    if (file.size > 100 * 1024 * 1024) {
-        showError('El archivo es demasiado grande. El tamaño máximo es 100MB.');
+    // Validate file size (max 5GB for long videos)
+    if (file.size > 5 * 1024 * 1024 * 1024) {
+        showError('El archivo es demasiado grande. El tamaño máximo es 5GB.');
         return;
     }
 
@@ -124,6 +127,8 @@ async function processVideo() {
     }
 
     const targetLanguage = document.getElementById('targetLanguage').value;
+    const ttsProvider = document.getElementById('ttsProvider').value;
+    const voiceId = document.getElementById('voiceSelector').value;
 
     // Show progress section
     showProgress();
@@ -136,6 +141,10 @@ async function processVideo() {
         const formData = new FormData();
         formData.append('video', selectedFile);
         formData.append('targetLanguage', targetLanguage);
+        formData.append('ttsProvider', ttsProvider);
+        if (voiceId) {
+            formData.append('voiceId', voiceId);
+        }
 
         // Start processing
         const response = await fetch('/api/process-video', {
@@ -169,7 +178,9 @@ async function pollProgress() {
         const response = await fetch(`/api/progress/${processId}`);
         const data = await response.json();
 
-        updateProgress(data.progress, data.currentStep, data.status);
+
+
+        updateProgress(data.progress, data.currentStep, data.status, data);
 
         if (data.status === 'completed') {
             showResults(data.resultUrl);
@@ -197,23 +208,63 @@ async function pollProgress() {
 }
 
 // Update progress display
-function updateProgress(progress, currentStep, status) {
+function updateProgress(progress, currentStep, status, data) {
     // Update progress bar
     progressFill.style.width = `${progress}%`;
 
     // Update progress text
-    const stepTexts = {
-        1: 'Convirtiendo video a audio...',
-        2: 'Transcribiendo audio...',
-        3: 'Traduciendo texto...',
-        4: 'Generando audio traducido...',
-        5: 'Sincronizando audio con video...'
-    };
-
-    progressText.textContent = stepTexts[currentStep] || 'Procesando...';
+    progressText.textContent = data.progressMessage || 'Procesando...';
 
     // Update step indicators
     updateStepIndicators(currentStep);
+
+    // Update time estimates
+    updateTimeEstimates(data);
+
+    // Update chunk info for long videos
+    updateChunkInfo(data);
+}
+
+// Update time estimates display
+function updateTimeEstimates(data) {
+    const timeModalBtn = document.getElementById('timeModalBtn');
+    const elapsedTime = document.getElementById('elapsedTime');
+    const remainingTime = document.getElementById('remainingTime');
+    const completionTime = document.getElementById('completionTime');
+
+    if (data.timeEstimates) {
+        // Show the modal button
+        timeModalBtn.style.display = 'flex';
+
+        // Update the values in the modal
+        elapsedTime.textContent = data.timeEstimates.elapsed || '--';
+        remainingTime.textContent = data.timeEstimates.remaining || '--';
+        completionTime.textContent = data.timeEstimates.completionTime || '--';
+
+        // Auto-open modal on first time estimates (when processing starts)
+        if (data.currentStep === 1 && data.progress > 0) {
+            setTimeout(() => {
+                openTimeModal();
+            }, 1000); // Small delay to let the progress bar appear first
+        }
+    } else {
+        timeModalBtn.style.display = 'none';
+    }
+}
+
+// Update chunk info for long videos
+function updateChunkInfo(data) {
+    const chunkInfo = document.getElementById('chunkInfo');
+    const currentChunk = document.getElementById('currentChunk');
+    const totalChunks = document.getElementById('totalChunks');
+
+    if (data.isLongVideo && data.totalChunks > 1) {
+        chunkInfo.style.display = 'block';
+        currentChunk.textContent = data.currentChunk || '--';
+        totalChunks.textContent = data.totalChunks || '--';
+    } else {
+        chunkInfo.style.display = 'none';
+    }
 }
 
 // Update step indicators
@@ -235,6 +286,10 @@ function updateStepIndicators(currentStep) {
 function showProgress() {
     progressSection.style.display = 'block';
     progressSection.classList.add('fade-in');
+
+    // Initialize time modal button
+    const timeModalBtn = document.getElementById('timeModalBtn');
+    timeModalBtn.style.display = 'none';
 }
 
 // Hide progress section
@@ -308,4 +363,266 @@ function addLoadingAnimation(button) {
 function removeLoadingAnimation(button, originalText) {
     button.innerHTML = originalText;
     button.disabled = false;
+}
+
+
+
+// Open time modal
+function openTimeModal() {
+    const timeModal = document.getElementById('timeModal');
+    timeModal.style.display = 'block';
+    document.body.style.overflow = 'hidden'; // Prevent background scrolling
+}
+
+// Close time modal
+function closeTimeModal() {
+    const timeModal = document.getElementById('timeModal');
+    timeModal.style.display = 'none';
+    document.body.style.overflow = 'auto'; // Restore scrolling
+}
+
+// Close modal when clicking outside
+document.addEventListener('DOMContentLoaded', function () {
+    const timeModal = document.getElementById('timeModal');
+
+    timeModal.addEventListener('click', function (e) {
+        if (e.target === timeModal) {
+            closeTimeModal();
+        }
+    });
+
+    // Close modal with Escape key
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && timeModal.style.display === 'block') {
+            closeTimeModal();
+        }
+    });
+});
+
+// Funciones para manejar voces de ElevenLabs
+let elevenLabsVoices = [];
+
+// Cargar voces de ElevenLabs
+async function loadElevenLabsVoices() {
+    try {
+        const response = await fetch('/api/elevenlabs-voices');
+        const data = await response.json();
+
+        if (data.voices) {
+            elevenLabsVoices = data.voices;
+            hideVoiceWarning();
+            showVoiceInfoMessage();
+        } else if (data.fallbackVoices) {
+            elevenLabsVoices = data.fallbackVoices;
+            showVoiceWarning();
+            hideVoiceInfoMessage();
+        }
+
+        populateVoiceSelector();
+    } catch (error) {
+        console.error('Error cargando voces de ElevenLabs:', error);
+        // Usar voces por defecto si hay error
+        elevenLabsVoices = [
+            // Voces en Inglés
+            { voice_id: '21m00Tcm4TlvDq8ikWAM', name: 'Rachel', category: 'premade', labels: { language: 'en' } },
+            { voice_id: 'AZnzlk1XvdvUeBnXmlld', name: 'Domi', category: 'premade', labels: { language: 'en' } },
+            { voice_id: 'EXAVITQu4vr4xnSDxMaL', name: 'Bella', category: 'premade', labels: { language: 'en' } },
+            { voice_id: 'VR6AewLTigWG4xSOukaG', name: 'Sam', category: 'premade', labels: { language: 'en' } },
+            { voice_id: 'yoZ06aMxZJJ28mfd3POQ', name: 'Josh', category: 'premade', labels: { language: 'en' } },
+            { voice_id: 'pNInz6obpgDQGcFmaJgB', name: 'Adam', category: 'premade', labels: { language: 'en' } },
+            { voice_id: 'ThT5KcBeYPX3keUQqHPh', name: 'Antoni', category: 'premade', labels: { language: 'en' } },
+
+            // Voces en Español
+            { voice_id: 'EXAVITQu4vr4xnSDxMaL', name: 'Bella', category: 'premade', labels: { language: 'es' } },
+            { voice_id: 'VR6AewLTigWG4xSOukaG', name: 'Sam', category: 'premade', labels: { language: 'es' } },
+
+            // Voces en Francés
+            { voice_id: 'yoZ06aMxZJJ28mfd3POQ', name: 'Josh', category: 'premade', labels: { language: 'fr' } },
+            { voice_id: 'VR6AewLTigWG4xSOukaG', name: 'Sam', category: 'premade', labels: { language: 'fr' } },
+
+            // Voces en Alemán
+            { voice_id: 'AZnzlk1XvdvUeBnXmlld', name: 'Domi', category: 'premade', labels: { language: 'de' } },
+            { voice_id: 'VR6AewLTigWG4xSOukaG', name: 'Sam', category: 'premade', labels: { language: 'de' } },
+
+            // Voces en Italiano
+            { voice_id: 'pNInz6obpgDQGcFmaJgB', name: 'Adam', category: 'premade', labels: { language: 'it' } },
+            { voice_id: 'VR6AewLTigWG4xSOukaG', name: 'Sam', category: 'premade', labels: { language: 'it' } },
+
+            // Voces en Portugués
+            { voice_id: 'VR6AewLTigWG4xSOukaG', name: 'Sam', category: 'premade', labels: { language: 'pt' } },
+
+            // Voces en Japonés
+            { voice_id: 'ThT5KcBeYPX3keUQqHPh', name: 'Antoni', category: 'premade', labels: { language: 'ja' } },
+            { voice_id: 'VR6AewLTigWG4xSOukaG', name: 'Sam', category: 'premade', labels: { language: 'ja' } }
+        ];
+        populateVoiceSelector();
+    }
+}
+
+// Poblar el selector de voces
+function populateVoiceSelector() {
+    const voiceSelector = document.getElementById('voiceSelector');
+    voiceSelector.innerHTML = '<option value="">Seleccionar voz automáticamente</option>';
+
+    // Si tenemos voces reales de ElevenLabs, mostrarlas todas juntas
+    if (elevenLabsVoices.length > 0 && elevenLabsVoices[0].voice_id) {
+        // Ordenar voces por categoría y nombre
+        const sortedVoices = [...elevenLabsVoices].sort((a, b) => {
+            if (a.category !== b.category) {
+                return a.category.localeCompare(b.category);
+            }
+            return a.name.localeCompare(b.name);
+        });
+
+        // Agrupar por categoría
+        const voicesByCategory = {};
+        sortedVoices.forEach(voice => {
+            const category = voice.category || 'premade';
+            if (!voicesByCategory[category]) {
+                voicesByCategory[category] = [];
+            }
+            voicesByCategory[category].push(voice);
+        });
+
+        // Agregar voces agrupadas por categoría
+        Object.keys(voicesByCategory).sort().forEach(category => {
+            const optgroup = document.createElement('optgroup');
+            optgroup.label = `${category.charAt(0).toUpperCase() + category.slice(1)} (${voicesByCategory[category].length} voces)`;
+
+            voicesByCategory[category].forEach(voice => {
+                const option = document.createElement('option');
+                option.value = voice.voice_id;
+                option.textContent = voice.description || `${voice.name}${voice.accent ? ` (${voice.accent})` : ''}`;
+                option.dataset.voice = JSON.stringify(voice);
+                optgroup.appendChild(option);
+            });
+
+            voiceSelector.appendChild(optgroup);
+        });
+    } else {
+        // Fallback: agrupar por idioma
+        const voicesByLanguage = {};
+        elevenLabsVoices.forEach(voice => {
+            const language = voice.language || voice.labels?.language || 'en';
+            if (!voicesByLanguage[language]) {
+                voicesByLanguage[language] = [];
+            }
+            voicesByLanguage[language].push(voice);
+        });
+
+        Object.keys(voicesByLanguage).sort().forEach(language => {
+            const languageName = getLanguageName(language);
+            const optgroup = document.createElement('optgroup');
+            optgroup.label = `${languageName} (${voicesByLanguage[language].length} voces)`;
+
+            voicesByLanguage[language].forEach(voice => {
+                const option = document.createElement('option');
+                option.value = voice.voice_id;
+                option.textContent = voice.displayName || `${voice.name} (${voice.category})`;
+                option.dataset.voice = JSON.stringify(voice);
+                optgroup.appendChild(option);
+            });
+
+            voiceSelector.appendChild(optgroup);
+        });
+    }
+
+    // Agregar evento para mostrar información de la voz seleccionada
+    voiceSelector.addEventListener('change', showVoiceInfo);
+}
+
+// Obtener nombre del idioma
+function getLanguageName(languageCode) {
+    const languageNames = {
+        'en': 'Inglés',
+        'es': 'Español',
+        'fr': 'Francés',
+        'de': 'Alemán',
+        'it': 'Italiano',
+        'pt': 'Portugués',
+        'ja': 'Japonés',
+        'ko': 'Coreano',
+        'zh': 'Chino',
+        'ru': 'Ruso',
+        'ar': 'Árabe',
+        'hi': 'Hindi'
+    };
+    return languageNames[languageCode] || languageCode;
+}
+
+// Manejar cambio de proveedor TTS
+function onTTSProviderChange() {
+    const ttsProvider = document.getElementById('ttsProvider').value;
+    const voiceSelectorGroup = document.getElementById('voiceSelectorGroup');
+
+    if (ttsProvider === 'elevenlabs') {
+        voiceSelectorGroup.classList.add('show');
+    } else {
+        voiceSelectorGroup.classList.remove('show');
+        voiceSelectorGroup.style.display = 'none';
+        hideVoiceInfo();
+    }
+}
+
+// Mostrar información de la voz seleccionada
+function showVoiceInfo() {
+    const voiceSelector = document.getElementById('voiceSelector');
+    const voiceInfo = document.getElementById('voiceInfo');
+    const voiceCategory = document.getElementById('voiceCategory');
+    const voiceLanguage = document.getElementById('voiceLanguage');
+    const voiceAccent = document.getElementById('voiceAccent');
+
+    if (voiceSelector.value) {
+        try {
+            const voice = JSON.parse(voiceSelector.selectedOptions[0].dataset.voice);
+
+            voiceCategory.textContent = voice.category || 'premade';
+
+            // Para voces reales de ElevenLabs, mostrar que pueden hablar en cualquier idioma
+            if (voice.voice_id && voice.voice_id.length > 10) {
+                voiceLanguage.textContent = 'Multilingüe (cualquier idioma)';
+            } else {
+                voiceLanguage.textContent = getLanguageName(voice.language || voice.labels?.language || 'en');
+            }
+
+            if (voice.accent || voice.labels?.accent) {
+                voiceAccent.textContent = ` • ${voice.accent || voice.labels.accent}`;
+                voiceAccent.style.display = 'inline';
+            } else {
+                voiceAccent.style.display = 'none';
+            }
+
+            voiceInfo.style.display = 'block';
+        } catch (error) {
+            console.error('Error parsing voice data:', error);
+            hideVoiceInfo();
+        }
+    } else {
+        hideVoiceInfo();
+    }
+}
+
+// Ocultar información de la voz
+function hideVoiceInfo() {
+    document.getElementById('voiceInfo').style.display = 'none';
+}
+
+// Mostrar advertencia de voces limitadas
+function showVoiceWarning() {
+    document.getElementById('voiceWarning').style.display = 'block';
+}
+
+// Ocultar advertencia de voces limitadas
+function hideVoiceWarning() {
+    document.getElementById('voiceWarning').style.display = 'none';
+}
+
+// Mostrar mensaje informativo de voces reales
+function showVoiceInfoMessage() {
+    document.getElementById('voiceInfoMessage').style.display = 'block';
+}
+
+// Ocultar mensaje informativo de voces reales
+function hideVoiceInfoMessage() {
+    document.getElementById('voiceInfoMessage').style.display = 'none';
 } 
